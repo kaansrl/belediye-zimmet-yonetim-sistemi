@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+  <div>
+    <h3 class="mb-1">Raporlar</h3>
+    <div class="muted">
+      {% if birim %}
+        Birim: <b>{{ birim.ad }}</b>
+      {% else %}
+        {% if admin_mi %}
+          Yetki: <b>Admin</b> (Tüm birimler)
+        {% else %}
+          <span class="text-danger">Uyarı: Kullanıcı birime bağlı değil (KullaniciBirim kaydı yok)</span>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="d-flex flex-column flex-sm-row align-items-sm-end gap-2">
+    <form method="get" class="d-flex align-items-end gap-2 flex-wrap">
+      <div>
+        <label class="form-label small mb-1">Başlangıç</label>
+        <input type="date" class="form-control form-control-sm" name="start" value="{{ start }}">
+      </div>
+      <div>
+        <label class="form-label small mb-1">Bitiş</label>
+        <input type="date" class="form-control form-control-sm" name="end" value="{{ end }}">
+      </div>
+      <button class="btn btn-dark btn-sm" type="submit">Filtrele</button>
+      <a class="btn btn-outline-secondary btn-sm" href="/raporlar/">Temizle</a>
+    </form>
+
+    <a
+      class="btn btn-success btn-sm"
+      href="{% url 'export_aktif_zimmet_csv' %}?start={{ start }}&end={{ end }}"
+    >
+      Aktif Zimmetleri CSV İndir
+    </a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-3">
+  <div class="col-12 col-sm-6 col-lg-3">
+    <div class="card card-soft p-3">
+      <div class="muted small">Toplam Demirbaş</div>
+      <div class="fs-3 fw-bold">{{ kpi.toplam }}</div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-3">
+    <div class="card card-soft p-3 border-start border-4 border-danger">
+      <div class="muted small">Zimmetli</div>
+      <div class="fs-3 fw-bold">{{ kpi.zimmetli }}</div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-3">
+    <div class="card card-soft p-3 border-start border-4 border-success">
+      <div class="muted small">Stokta</div>
+      <div class="fs-3 fw-bold">{{ kpi.stokta }}</div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-3">
+    <div class="card card-soft p-3 border-start border-4 border-warning">
+      <div class="muted small">Arızalı / Hurda</div>
+      <div class="fs-5 fw-bold">{{ kpi.arizali }} / {{ kpi.hurda }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card card-soft">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Kategori Dağılımı</h5>
+
+        <div class="mb-3" style="height: 220px;">
+          <canvas id="chartKategori"></canvas>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Kategori</th>
+                <th class="text-end">Adet</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in kategori_dagilim %}
+                <tr>
+                  <td>{{ row.kategori }}</td>
+                  <td class="text-end fw-semibold">{{ row.adet }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="muted">Kayıt yok</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="muted small">Not: Dağılım, mevcut filtrelere göre hesaplanır.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card card-soft">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Birim Dağılımı</h5>
+
+        <div class="mb-3" style="height: 220px;">
+          <canvas id="chartBirim"></canvas>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Birim</th>
+                <th class="text-end">Adet</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in birim_dagilim %}
+                <tr>
+                  <td>{{ row.birim__ad }}</td>
+                  <td class="text-end fw-semibold">{{ row.adet }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="muted">Kayıt yok</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="muted small">Not: Admin tüm birimleri görür; birim yetkilisi sadece kendi birimini.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card card-soft">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Aktif Zimmetler (Son 20)</h5>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Demirbaş</th>
+                <th>Personel</th>
+                <th>Veriliş Tarihi</th>
+                <th>Birim</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for z in aktif_zimmetler %}
+                <tr>
+                  <td class="fw-semibold">{{ z.demirbas.kod }} - {{ z.demirbas.ad }}</td>
+                  <td>{{ z.personel.ad_soyad }}</td>
+                  <td>{{ z.verilme_tarihi }}</td>
+                  <td>{{ z.demirbas.birim.ad }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="muted">Aktif zimmet yok</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="muted small">Filtre alanı doluysa liste, seçilen tarih aralığına göre daralır.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  {{ kategori_dagilim|json_script:"kategori_json" }}
+  {{ birim_dagilim|json_script:"birim_json" }}
+
+  <script>
+    const kategori = JSON.parse(document.getElementById("kategori_json").textContent || "[]");
+    const birimler = JSON.parse(document.getElementById("birim_json").textContent || "[]");
+
+    const kategoriLabels = kategori.map(x => x.kategori ?? "-");
+    const kategoriData   = kategori.map(x => Number(x.adet ?? 0));
+
+    const birimLabels = birimler.map(x => x["birim__ad"] ?? "-");
+    const birimData   = birimler.map(x => Number(x.adet ?? 0));
+
+    function renderBarChart(canvasId, labels, data) {
+      const el = document.getElementById(canvasId);
+      if (!el || !labels.length) return;
+
+      new Chart(el, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+  label: "Adet",
+  data,
+  backgroundColor: "rgba(156,163,175,0.45)",
+  borderColor: "rgba(107,114,128,0.8)",
+  borderWidth: 1
+}]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
+
+    renderBarChart("chartKategori", kategoriLabels, kategoriData);
+    renderBarChart("chartBirim", birimLabels, birimData);
+  </script>
+{% endblock %}

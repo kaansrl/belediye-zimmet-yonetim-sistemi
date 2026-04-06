@@ -11,7 +11,7 @@
         {% if admin_mi %}
           Yetki: <b>Admin</b> (Tüm birimler)
         {% else %}
-          <span class="text-danger">Uyarı: Kullanıcı birime bağlı değil (KullaniciBirim kaydı yok)</span>
+          <span class="text-danger">Uyarı: Kullanıcı herhangi bir birime bağlı değil.</span>
         {% endif %}
       {% endif %}
     </div>
@@ -28,42 +28,48 @@
         <input type="date" class="form-control form-control-sm" name="end" value="{{ end }}">
       </div>
       <button class="btn btn-dark btn-sm" type="submit">Filtrele</button>
-      <a class="btn btn-outline-secondary btn-sm" href="/raporlar/">Temizle</a>
+      <a class="btn btn-outline-secondary btn-sm" href="/raporlar/">Filtreyi Temizle</a>
     </form>
 
     <a
       class="btn btn-success btn-sm"
       href="{% url 'export_aktif_zimmet_csv' %}?start={{ start }}&end={{ end }}"
     >
-      Aktif Zimmetleri CSV İndir
+      Aktif Zimmetleri İndir (CSV)
     </a>
   </div>
 </div>
 
-<!-- KPI Cards -->
 <div class="row g-3 mb-3">
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="card card-soft p-3">
       <div class="muted small">Toplam Demirbaş</div>
       <div class="fs-3 fw-bold">{{ kpi.toplam }}</div>
+      <div class="muted small">Sistemde kayıtlı toplam varlık</div>
     </div>
   </div>
+
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="card card-soft p-3 border-start border-4 border-danger">
       <div class="muted small">Zimmetli</div>
       <div class="fs-3 fw-bold">{{ kpi.zimmetli }}</div>
+      <div class="muted small">Toplamın %{{ kpi_oran.zimmetli }}’i</div>
     </div>
   </div>
+
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="card card-soft p-3 border-start border-4 border-success">
       <div class="muted small">Stokta</div>
       <div class="fs-3 fw-bold">{{ kpi.stokta }}</div>
+      <div class="muted small">Toplamın %{{ kpi_oran.stokta }}’i</div>
     </div>
   </div>
+
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="card card-soft p-3 border-start border-4 border-warning">
       <div class="muted small">Arızalı / Hurda</div>
       <div class="fs-5 fw-bold">{{ kpi.arizali }} / {{ kpi.hurda }}</div>
+      <div class="muted small">Toplamın %{{ kpi_oran.arizali_hurda }}’i</div>
     </div>
   </div>
 </div>
@@ -93,12 +99,12 @@
                   <td class="text-end fw-semibold">{{ row.adet }}</td>
                 </tr>
               {% empty %}
-                <tr><td colspan="2" class="muted">Kayıt yok</td></tr>
+                <tr><td colspan="2" class="muted">Kategori verisi bulunamadı.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <div class="muted small">Not: Dağılım, mevcut filtrelere göre hesaplanır.</div>
+        <div class="muted small">Not: Dağılım tablosu mevcut filtrelere göre hesaplanır.</div>
       </div>
     </div>
   </div>
@@ -127,12 +133,12 @@
                   <td class="text-end fw-semibold">{{ row.adet }}</td>
                 </tr>
               {% empty %}
-                <tr><td colspan="2" class="muted">Kayıt yok</td></tr>
+                <tr><td colspan="2" class="muted">Birim verisi bulunamadı.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <div class="muted small">Not: Admin tüm birimleri görür; birim yetkilisi sadece kendi birimini.</div>
+        <div class="muted small">Not: Admin tüm birimleri görür; birim yetkilisi yalnızca kendi birimini görür.</div>
       </div>
     </div>
   </div>
@@ -149,6 +155,7 @@
                 <th>Personel</th>
                 <th>Veriliş Tarihi</th>
                 <th>Birim</th>
+                <th>Durum</th>
               </tr>
             </thead>
             <tbody>
@@ -156,16 +163,19 @@
                 <tr>
                   <td class="fw-semibold">{{ z.demirbas.kod }} - {{ z.demirbas.ad }}</td>
                   <td>{{ z.personel.ad_soyad }}</td>
-                  <td>{{ z.verilme_tarihi }}</td>
+                  <td>{{ z.verilme_tarihi|date:"d.m.Y" }}</td>
                   <td>{{ z.demirbas.birim.ad }}</td>
+                  <td>
+                    <span class="badge text-bg-primary">Aktif</span>
+                  </td>
                 </tr>
               {% empty %}
-                <tr><td colspan="4" class="muted">Aktif zimmet yok</td></tr>
+                <tr><td colspan="5" class="muted">Aktif zimmet kaydı bulunamadı.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <div class="muted small">Filtre alanı doluysa liste, seçilen tarih aralığına göre daralır.</div>
+        <div class="muted small">Tarih filtresi kullanıldığında liste seçilen aralığa göre daralır.</div>
       </div>
     </div>
   </div>
@@ -189,7 +199,26 @@
     const birimLabels = birimler.map(x => x["birim__ad"] ?? "-");
     const birimData   = birimler.map(x => Number(x.adet ?? 0));
 
-    function renderBarChart(canvasId, labels, data) {
+    const kategoriRenkler = [
+  "rgba(120,120,120,0.6)",
+  "rgba(160,160,160,0.6)",
+  "rgba(90,90,90,0.6)",
+  "rgba(180,180,180,0.6)",
+  "rgba(140,140,140,0.6)"
+];
+
+const kategoriBorder = [
+  "rgba(120,120,120,1)",
+  "rgba(160,160,160,1)",
+  "rgba(90,90,90,1)",
+  "rgba(180,180,180,1)",
+  "rgba(140,140,140,1)"
+];
+
+const birimRenkler = [...kategoriRenkler];
+const birimBorder = [...kategoriBorder];
+
+    function renderBarChart(canvasId, labels, data, bgColors, borderColors) {
       const el = document.getElementById(canvasId);
       if (!el || !labels.length) return;
 
@@ -198,25 +227,30 @@
         data: {
           labels,
           datasets: [{
-  label: "Adet",
-  data,
-  backgroundColor: "rgba(156,163,175,0.45)",
-  borderColor: "rgba(107,114,128,0.8)",
-  borderWidth: 1
-}]
+            label: "Adet",
+            data,
+            backgroundColor: bgColors.slice(0, labels.length),
+            borderColor: borderColors.slice(0, labels.length),
+            borderWidth: 1
+          }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false }
+          },
           scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 } }
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 }
+            }
           }
         }
       });
     }
 
-    renderBarChart("chartKategori", kategoriLabels, kategoriData);
-    renderBarChart("chartBirim", birimLabels, birimData);
+    renderBarChart("chartKategori", kategoriLabels, kategoriData, kategoriRenkler, kategoriBorder);
+    renderBarChart("chartBirim", birimLabels, birimData, birimRenkler, birimBorder);
   </script>
 {% endblock %}

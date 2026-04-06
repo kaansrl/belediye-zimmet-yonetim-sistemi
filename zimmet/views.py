@@ -10,9 +10,22 @@ from reportlab.lib.pagesizes import A4
 from .models import ZimmetKaydi
 
 
-# Türkçe karakter destekli fontları bir kez tanıt
 pdfmetrics.registerFont(TTFont("ArialTR", r"C:\Windows\Fonts\arial.ttf"))
 pdfmetrics.registerFont(TTFont("ArialTR-Bold", r"C:\Windows\Fonts\arialbd.ttf"))
+
+
+def format_tarih(tarih):
+    if not tarih:
+        return "-"
+    return tarih.strftime("%d.%m.%Y")
+
+
+def format_durum(durum):
+    mapping = {
+        "aktif": "Aktif",
+        "iade": "İade Edildi",
+    }
+    return mapping.get(durum, durum)
 
 
 @login_required
@@ -25,46 +38,33 @@ def zimmet_pdf(request, zimmet_id):
     p = canvas.Canvas(response, pagesize=A4)
     width, height = A4
 
-    # Üst başlık
+    # Başlıklar
     p.setFont("ArialTR-Bold", 14)
-    p.drawCentredString(
-        width / 2,
-        height - 50,
-        "YEŞİLYURT BELEDİYESİ"
-    )
+    p.drawCentredString(width / 2, height - 50, "YEŞİLYURT BELEDİYESİ")
 
     p.setFont("ArialTR-Bold", 12)
-    p.drawCentredString(
-        width / 2,
-        height - 70,
-        "Demirbaş ve Zimmet Yönetim Sistemi"
-    )
+    p.drawCentredString(width / 2, height - 70, "Demirbaş ve Zimmet Yönetim Sistemi")
 
     p.setFont("ArialTR-Bold", 20)
-    p.drawCentredString(
-        width / 2,
-        height - 100,
-        "ZİMMET FORMU"
-    )
+    p.drawCentredString(width / 2, height - 100, "ZİMMET FORMU")
 
-    # Üst çizgi
+    # Çizgi (biraz daha kalın hissi için)
+    p.setLineWidth(1.2)
     p.line(60, height - 115, width - 60, height - 115)
 
-    # Kurumsal bilgi alanı
+    # İçerik
     y = height - 160
     sol_x = 80
     deger_x = 230
-
-    p.setFont("ArialTR", 13)
 
     alanlar = [
         ("Demirbaş Kodu:", zimmet.demirbas.kod),
         ("Demirbaş Adı:", zimmet.demirbas.ad),
         ("Personel:", zimmet.personel.ad_soyad),
         ("Birim:", zimmet.demirbas.birim.ad if zimmet.demirbas.birim else "-"),
-        ("Verilme Tarihi:", str(zimmet.verilme_tarihi)),
-        ("İade Tarihi:", str(zimmet.iade_tarihi) if zimmet.iade_tarihi else "-"),
-        ("Durum:", zimmet.durum),
+        ("Verilme Tarihi:", format_tarih(zimmet.verilme_tarihi)),
+        ("İade Tarihi:", format_tarih(zimmet.iade_tarihi)),
+        ("Durum:", format_durum(zimmet.durum)),
         ("Açıklama:", zimmet.aciklama if zimmet.aciklama else "-"),
     ]
 
@@ -74,9 +74,9 @@ def zimmet_pdf(request, zimmet_id):
 
         p.setFont("ArialTR", 12)
         p.drawString(deger_x, y, str(deger))
-        y -= 32
+        y -= 30
 
-    # İmza alanları
+    # İmza alanı
     y -= 40
 
     p.setFont("ArialTR-Bold", 12)

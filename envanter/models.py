@@ -8,6 +8,11 @@ class Birim(models.Model):
     aktif = models.BooleanField(default=True)
     olusturma_tarihi = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Birim"
+        verbose_name_plural = "Birimler"
+        ordering = ["ad"]
+
     def __str__(self):
         return self.ad
 
@@ -19,6 +24,11 @@ class Personel(models.Model):
     birim = models.ForeignKey(Birim, on_delete=models.PROTECT)
     aktif = models.BooleanField(default=True)
     olusturma_tarihi = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Personel"
+        verbose_name_plural = "Personeller"
+        ordering = ["ad_soyad"]
 
     def __str__(self):
         return f"{self.ad_soyad} ({self.sicil_no})"
@@ -43,6 +53,11 @@ class Demirbas(models.Model):
     aciklama = models.TextField(blank=True, null=True)
     olusturma_tarihi = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Demirbaş"
+        verbose_name_plural = "Demirbaşlar"
+        ordering = ["kod"]
+
     def __str__(self):
         return f"{self.kod} - {self.ad}"
 
@@ -54,6 +69,10 @@ class KullaniciBirim(models.Model):
         related_name="birim_bilgisi",
     )
     birim = models.ForeignKey(Birim, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = "Kullanıcı Birim Eşleştirmesi"
+        verbose_name_plural = "Kullanıcı Birim Eşleştirmeleri"
 
     def __str__(self):
         return f"{self.user} -> {self.birim.ad}"

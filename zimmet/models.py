@@ -21,7 +21,11 @@ class ZimmetKaydi(models.Model):
 
     olusturma_tarihi = models.DateTimeField(auto_now_add=True)
 
-    # 🔴 BURASI ÖNEMLİ
+    class Meta:
+        verbose_name = "Zimmet Kaydı"
+        verbose_name_plural = "Zimmet Kayıtları"
+        ordering = ["-olusturma_tarihi"]
+
     def clean(self):
         if self.durum == "aktif" and self.demirbas_id:
             qs = ZimmetKaydi.objects.filter(demirbas=self.demirbas, durum="aktif")
@@ -30,7 +34,6 @@ class ZimmetKaydi(models.Model):
             if qs.exists():
                 raise ValidationError("Bu demirbaş zaten aktif zimmetli. Önce iade edilmelidir.")
 
-    # 🔴 BURASI DA ÖNEMLİ
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)

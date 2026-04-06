@@ -15,7 +15,7 @@ User = get_user_model()
 def log_demirbas_save(sender, instance, created, **kwargs):
     write_audit_log(
         AuditLog.ACTION_CREATE if created else AuditLog.ACTION_UPDATE,
-        instance
+        instanceassess
     )
 
 

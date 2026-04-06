@@ -9,7 +9,6 @@ from zimmet.models import ZimmetKaydi
 
 
 def _is_admin(user) -> bool:
-    # Grup adın farklıysa burayı değiştir: "Admin"
     return user.is_superuser or user.groups.filter(name="Admin").exists()
 
 
@@ -18,6 +17,12 @@ def _get_user_birim(user):
         return KullaniciBirim.objects.select_related("birim").get(user=user).birim
     except KullaniciBirim.DoesNotExist:
         return None
+
+
+def _format_tarih(tarih):
+    if not tarih:
+        return ""
+    return tarih.strftime("%d.%m.%Y")
 
 
 def _get_filtered_querysets(request):
@@ -30,7 +35,6 @@ def _get_filtered_querysets(request):
         "demirbas", "demirbas__birim", "personel"
     ).all()
 
-    # Admin değilse: sadece kendi birimi
     if not admin_mi:
         if birim is None:
             demirbas_qs = demirbas_qs.none()
@@ -39,12 +43,13 @@ def _get_filtered_querysets(request):
             demirbas_qs = demirbas_qs.filter(birim=birim)
             zimmet_qs = zimmet_qs.filter(demirbas__birim=birim)
 
-    # Tarih aralığı filtresi (opsiyonel)
-    start = request.GET.get("start")  # YYYY-MM-DD
-    end = request.GET.get("end")      # YYYY-MM-DD
+    start = request.GET.get("start")
+    end = request.GET.get("end")
 
-    if start and end:
-        zimmet_qs = zimmet_qs.filter(verilme_tarihi__range=[start, end])
+    if start:
+        zimmet_qs = zimmet_qs.filter(verilme_tarihi__gte=start)
+    if end:
+        zimmet_qs = zimmet_qs.filter(verilme_tarihi__lte=end)
 
     return {
         "user": user,
@@ -64,7 +69,6 @@ def dashboard(request):
     demirbas_qs = data["demirbas_qs"]
     zimmet_qs = data["zimmet_qs"]
 
-    # KPI sayıları
     kpi = {
         "zimmetli": demirbas_qs.filter(durum="zimmetli").count(),
         "stokta": demirbas_qs.filter(durum="stokta").count(),
@@ -73,7 +77,14 @@ def dashboard(request):
         "toplam": demirbas_qs.count(),
     }
 
-    # Grafik/tablo için dağılımlar
+    toplam = kpi["toplam"] or 1
+
+    kpi_oran = {
+        "zimmetli": round(kpi["zimmetli"] * 100 / toplam, 1),
+        "stokta": round(kpi["stokta"] * 100 / toplam, 1),
+        "arizali_hurda": round((kpi["arizali"] + kpi["hurda"]) * 100 / toplam, 1),
+    }
+
     kategori_dagilim = list(
         demirbas_qs.values("kategori")
         .annotate(adet=Count("id"))
@@ -86,7 +97,6 @@ def dashboard(request):
         .order_by("-adet")
     )
 
-    # Aktif zimmet listesi
     aktif_zimmetler = list(
         zimmet_qs.filter(durum="aktif").order_by("-verilme_tarihi")[:20]
     )
@@ -96,6 +106,7 @@ def dashboard(request):
         "is_admin": data["admin_mi"],
         "birim": data["birim"],
         "kpi": kpi,
+        "kpi_oran": kpi_oran,
         "kategori_dagilim": kategori_dagilim,
         "birim_dagilim": birim_dagilim,
         "aktif_zimmetler": aktif_zimmetler,
@@ -113,7 +124,6 @@ def export_aktif_zimmet_csv(request):
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="aktif_zimmetler.csv"'
 
-    # Türkçe karakter sorunu yaşamamak için BOM ekliyoruz
     response.write("\ufeff")
 
     writer = csv.writer(response)
@@ -133,8 +143,8 @@ def export_aktif_zimmet_csv(request):
             z.demirbas.ad,
             z.personel.ad_soyad,
             z.demirbas.birim.ad if z.demirbas.birim else "",
-            z.verilme_tarihi,
-            z.durum,
+            _format_tarih(z.verilme_tarihi),
+            z.get_durum_display(),
             z.aciklama or "",
         ])
 

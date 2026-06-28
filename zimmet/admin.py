@@ -58,7 +58,6 @@ class ZimmetKaydiAdmin(admin.ModelAdmin):
             renk,
             etiket,
         )
-
     durum_rozeti.short_description = "Durum"
 
     # 📅 TARİH FORMATLAMA
@@ -94,7 +93,7 @@ class ZimmetKaydiAdmin(admin.ModelAdmin):
             return qs.filter(demirbas__birim=birim)
 
         return qs.none()
-
+        
     # 🔒 YETKİLER
     def has_add_permission(self, request):
         return is_admin(request.user)

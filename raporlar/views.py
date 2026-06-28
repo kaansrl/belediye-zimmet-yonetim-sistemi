@@ -97,8 +97,29 @@ def dashboard(request):
         .order_by("-adet")
     )
 
+    aktif_zimmet_qs = zimmet_qs.filter(durum="aktif")
+
+    personel = request.GET.get("personel", "").strip()
+    demirbas = request.GET.get("demirbas", "").strip()
+    birim_filtre = request.GET.get("birim", "").strip()
+
+    if personel:
+        aktif_zimmet_qs = aktif_zimmet_qs.filter(
+            personel__ad_soyad__icontains=personel
+        )
+
+    if demirbas:
+        aktif_zimmet_qs = aktif_zimmet_qs.filter(
+            demirbas__ad__icontains=demirbas
+        )
+
+    if birim_filtre:
+        aktif_zimmet_qs = aktif_zimmet_qs.filter(
+            demirbas__birim__ad__icontains=birim_filtre
+        )
+
     aktif_zimmetler = list(
-        zimmet_qs.filter(durum="aktif").order_by("-verilme_tarihi")[:20]
+        aktif_zimmet_qs.order_by("-verilme_tarihi")
     )
 
     ctx = {
@@ -112,14 +133,34 @@ def dashboard(request):
         "aktif_zimmetler": aktif_zimmetler,
         "start": data["start"],
         "end": data["end"],
+        "personel": personel,
+        "demirbas": demirbas,
+        "birim_filtre": birim_filtre,
     }
+
     return render(request, "raporlar/dashboard.html", ctx)
 
 
 @login_required
 def export_aktif_zimmet_csv(request):
     data = _get_filtered_querysets(request)
-    zimmet_qs = data["zimmet_qs"].filter(durum="aktif").order_by("-verilme_tarihi")
+
+    zimmet_qs = data["zimmet_qs"].filter(durum="aktif")
+
+    personel = request.GET.get("personel", "").strip()
+    demirbas = request.GET.get("demirbas", "").strip()
+    birim_filtre = request.GET.get("birim", "").strip()
+
+    if personel:
+        zimmet_qs = zimmet_qs.filter(personel__ad_soyad__icontains=personel)
+
+    if demirbas:
+        zimmet_qs = zimmet_qs.filter(demirbas__ad__icontains=demirbas)
+
+    if birim_filtre:
+        zimmet_qs = zimmet_qs.filter(demirbas__birim__ad__icontains=birim_filtre)
+
+    zimmet_qs = zimmet_qs.order_by("-verilme_tarihi")
 
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="aktif_zimmetler.csv"'
